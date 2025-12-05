@@ -2,7 +2,7 @@ use actix_web::{HttpResponse, Responder, get, post, web::{self, Path}};
 use utoipa::{OpenApi};
 use uuid::Uuid;
 
-use crate::{DbPool, models::user, routes::{api_models::{self, common::{ApiResponse, ErrorResponse}, user::{UserCreate, UserDto}}, get_conn}};
+use crate::{DbPool, models::{DbError, user}, routes::{api_models::{common::{ApiResponse, ErrorResponse}, user::{UserCreate, UserDto}}, handle_db_result}};
 
 
 
@@ -25,14 +25,8 @@ pub async fn get_user(
 ) -> impl Responder {
     let user_id = Uuid::try_parse(&id.into_inner()).unwrap();
     let mut conn = super::get_conn(pool).await;
-    crate::models::user::find_by_id(&mut conn, user_id)
-    .await
-    .unwrap()
-    .map(
-        |u| HttpResponse::Ok().json(ApiResponse::success(UserDto::from(u)))
-    ).unwrap_or(
-        HttpResponse::NotFound().json(ApiResponse::<()>::error("User not found".to_string(), Some("404".to_string())))
-    )
+
+    handle_db_result(crate::models::user::find_by_id(&mut conn, user_id).await)
 }
 
 #[utoipa::path(
@@ -52,13 +46,10 @@ pub async fn add_user(
 ) -> impl Responder {
     let user_create = user_json.into_inner();
     let mut conn = super::get_conn(pool).await;
-    user::add_user(&mut conn, &user_create.username, &user_create.email)
-    .await
-    .map(|u| UserDto::from(u))
-    .map(|dto| 
-        HttpResponse::Ok().json(ApiResponse::success(dto))
-    ).unwrap_or(
-        HttpResponse::BadRequest().json(ApiResponse::<()>::error("Cannot insert the user".to_string(), Some("400".to_string())))
+    handle_db_result(
+        user::add_user(&mut conn, &user_create.username, &user_create.email)
+        .await
+        .map(|u| UserDto::from(u))
     )
 }
 

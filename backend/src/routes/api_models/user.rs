@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::models::user::User;
-
-
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct UserCreate {
     pub username: String,

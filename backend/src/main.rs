@@ -1,13 +1,16 @@
-use std::env;
+use std::{env, sync::Arc};
 
 use actix_web::{ App, HttpServer, middleware::Logger, web};
 use diesel::SqliteConnection;
 use diesel_async::{pooled_connection::{AsyncDieselConnectionManager, deadpool::Pool}, sync_connection_wrapper::SyncConnectionWrapper};
 use utoipa_swagger_ui::SwaggerUi;
 
+use crate::services::user_services::{DbUserService, UserService};
+
 mod models;
 mod routes;
 mod schema; 
+mod services;
 
 type DbPool = Pool<SyncConnectionWrapper<SqliteConnection>>;
 
@@ -26,6 +29,7 @@ async fn main() -> std::io::Result<()> {
         name: std::env::var("APP_NAME").expect("Name not set"),
     };
     let pool = initialize_db_pool().await;
+    let user_service: web::Data<dyn UserService> = web::Data::new(Arc::new(DbUserService::new(pool.clone())));
     log::info!("Name: {}", conf.name);
     HttpServer::new (move || {
         App::new()

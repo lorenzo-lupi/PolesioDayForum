@@ -1,9 +1,8 @@
-use actix_web::web;
-use diesel::SqliteConnection;
-use diesel_async::{pooled_connection::AsyncDieselConnectionManager, sync_connection_wrapper::SyncConnectionWrapper};
+use actix_web::{HttpResponse, Responder, web};
+use serde::Serialize;
 use utoipa::OpenApi;
 
-use crate::{DbPool, models::DbConnection};
+use crate::{DbPool, models::{DbConnection, DbError}, routes::api_models::common::ApiResponse};
 
 pub mod posts;
 pub mod api_models;
@@ -26,4 +25,15 @@ async fn get_conn(
     pool.get()
         .await
         .expect("Pool")
+}
+
+fn handle_db_result<T: Serialize>(result: Result<T, DbError>) -> impl Responder {
+    match result {
+        Ok(body) => HttpResponse::Ok().json(ApiResponse::success(body)),
+        Err(e) => {
+            let (msg, code) = e.handle();
+            e.to_http_response()
+                .json(ApiResponse::<()>::error(msg, Some(code)))
+        }
+    }
 }

@@ -2,7 +2,8 @@ use actix_web::{HttpResponse, Responder, get, post, web::{self, Path}};
 use utoipa::OpenApi;
 
 use crate::{models::post::Post, routes::api_models::common::ApiResponse};
-use super::api_models::post::{PostCreateRequest, PostResponse};
+use super::api_models::post::{PostResponse};
+
 #[utoipa::path(
     get,
     path = "/api/posts/{id}",

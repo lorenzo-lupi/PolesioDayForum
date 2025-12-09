@@ -19,7 +19,7 @@ impl<T> ApiResponse<T> {
     pub fn success(data: T) -> Self {
         ApiResponse {
             success: true,
-            message: "Request successful".to_string(),
+            message: "OK".to_string(),
             data: Some(data),
         }
     }

@@ -1,8 +1,8 @@
-use actix_web::{HttpResponse, Responder, get, post, web::{self, Path}};
+use actix_web::{Responder, get, post, web::{self, Path}};
 use utoipa::{OpenApi};
 use uuid::Uuid;
 
-use crate::{DbPool, models::user, routes::{api_models::{self, common::{ApiResponse, ErrorResponse}, user::{UserCreate, UserDto}}, get_conn}};
+use crate::{routes::{api_models::{common::{ApiResponse, ErrorResponse}, user::{UserCreate, UserDto}}, handle_db_result}, services::{DbError, user_services::UserService}};
 
 
 
@@ -20,18 +20,17 @@ use crate::{DbPool, models::user, routes::{api_models::{self, common::{ApiRespon
 )]
 #[get("users/{id}")]
 pub async fn get_user(
-    pool: web::Data<DbPool>,
+    user_service: web::Data<dyn UserService>,
     id: Path<String>
 ) -> impl Responder {
-    let user_id = Uuid::try_parse(&id.into_inner()).unwrap();
-    let mut conn = super::get_conn(pool).await;
-    crate::models::user::find_by_id(&mut conn, user_id)
-    .await
-    .unwrap()
-    .map(
-        |u| HttpResponse::Ok().json(ApiResponse::success(UserDto::from(u)))
-    ).unwrap_or(
-        HttpResponse::NotFound().json(ApiResponse::<()>::error("User not found".to_string(), Some("404".to_string())))
+    let user_id = Uuid::try_parse(&id.into_inner());
+    if user_id.is_err() {
+        return handle_db_result(Err(DbError::InvalidInput("Uuid not valid".to_string())));
+    }
+    handle_db_result(
+        user_service.into_inner().find_by_id(user_id.unwrap())
+            .await
+            .map(UserDto::from)
     )
 }
 
@@ -47,18 +46,14 @@ pub async fn get_user(
 )]
 #[post("users")]
 pub async fn add_user(
-    pool: web::Data<DbPool>,
+    user_service: web::Data<dyn UserService>,
     user_json: web::Json<UserCreate>
 ) -> impl Responder {
     let user_create = user_json.into_inner();
-    let mut conn = super::get_conn(pool).await;
-    user::add_user(&mut conn, &user_create.username, &user_create.email)
-    .await
-    .map(|u| UserDto::from(u))
-    .map(|dto| 
-        HttpResponse::Ok().json(ApiResponse::success(dto))
-    ).unwrap_or(
-        HttpResponse::BadRequest().json(ApiResponse::<()>::error("Cannot insert the user".to_string(), Some("400".to_string())))
+    handle_db_result(
+        user_service.add_user(&user_create.username, &user_create.email)
+        .await
+        .map(UserDto::from)
     )
 }
 
